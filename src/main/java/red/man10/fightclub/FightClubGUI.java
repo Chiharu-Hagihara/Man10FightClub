@@ -143,7 +143,7 @@ public class FightClubGUI {
                     p.sendMessage("あなたは、弱すぎるため参加資格が取り消されました");
                 }
                 else if(ret == -5){
-                    p.sendMessage("あなたは、ブラックリストに登録されているため参加できません");
+                    p.sendMessage("あなたは、デニーリストに登録されているため参加できません");
                 }
                 else{
                     p.sendMessage("選手登録しました");

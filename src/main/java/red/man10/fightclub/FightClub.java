@@ -67,6 +67,7 @@ public final class FightClub extends JavaPlugin implements Listener {
     //    Fight ID （データベースキー）OpenFightでアップデートされる
     int fightId = -1;
 
+    public static boolean autoRunnerAvailable = false;
 
     String      worldName = "Arena";
 
@@ -74,10 +75,10 @@ public final class FightClub extends JavaPlugin implements Listener {
         Off,
         Free,           //  自由に遊べる、通知はしない
         Normal,         //  通常のモード（グローバル通知はしない
-        WhiteList,      //  ホワイトリスト
+        Allowlist,      //  アローリスト
         Pro             //  グローバル通知あり
     }
-    MFCModes           mode;
+    public static  MFCModes mode;
 
     //   状態遷移 これらの状態遷移する
     public enum Status {
@@ -115,7 +116,7 @@ public final class FightClub extends JavaPlugin implements Listener {
         double bet;             //  掛け金
     }
 
-    Status  currentStatus = Entry;
+    public static Status  currentStatus = Entry;
 
     //      対戦まちリスト
     ArrayList<PlayerInformation> waiters = new ArrayList<PlayerInformation>();
@@ -130,18 +131,18 @@ public final class FightClub extends JavaPlugin implements Listener {
     ArrayList<BetInformation> bets = new ArrayList<BetInformation>();
 
     /*
-    //      ブラックリスト
-    ArrayList<UUID> blacklist = new ArrayList<UUID>();
-    //      ホワイトリスト
-    ArrayList<UUID> whitelist = new ArrayList<UUID>();
+    //      デニーリスト
+    ArrayList<UUID> denylist = new ArrayList<UUID>();
+    //      アローリスト
+    ArrayList<UUID> allowlist = new ArrayList<UUID>();
     //     Pro
     ArrayList<UUID> prolist = new ArrayList<UUID>();
-    Boolean enbaleBlackList = true;
-    Boolean enableWhitelist = true;
+    Boolean enbaleDenylist = true;
+    Boolean enableAllowlist = true;
     */
 
-    FightClubList whitelist = null;
-    FightClubList blacklist = null;
+    FightClubList allowlist = null;
+    FightClubList denylist = null;
     FightClubList prolist = null;
 
     public  void setMFCMode(CommandSender sender,MFCModes mode){
@@ -167,8 +168,8 @@ public final class FightClub extends JavaPlugin implements Listener {
             enableMFC(sender,true);
 
         }
-        if(mode == MFCModes.WhiteList){
-            title = "MFC ホワイトリスト";
+        if(mode == MFCModes.Allowlist){
+            title = "MFC アローリスト";
             subTitle = "参加資格がある者のみ参加できます";
             enableMFC(sender,true);
         }
@@ -246,8 +247,8 @@ public final class FightClub extends JavaPlugin implements Listener {
             }
         }
 
-        if(blacklist.find(uuid.toString()) != -1){
-            s.sendMessage("ブラックリストに登録されているため参加できません");
+        if(denylist.find(uuid.toString()) != -1){
+            s.sendMessage("デニーリストに登録されているため参加できません");
             return -5;
         }
 
@@ -270,9 +271,9 @@ public final class FightClub extends JavaPlugin implements Listener {
 
 
         //      プロモード中はプロしか登録できない
-        if( mode == MFCModes.WhiteList){
-            if(whitelist.find(uuid.toString()) == -1){
-                s.sendMessage("あなたはホワイトリストに追加されていません");
+        if( mode == MFCModes.Allowlist){
+            if(allowlist.find(uuid.toString()) == -1){
+                s.sendMessage("あなたはアローリストに追加されていません");
                 return -7;
             }
         }
@@ -315,7 +316,7 @@ public final class FightClub extends JavaPlugin implements Listener {
             if(play >= newbiePlayableCount && playerInfo.death != 0){
                 double kdr = (double)playerInfo.kill / (double)playerInfo.death;
                 if(kdr < registerKDRLimit){
-                    if(whitelist.find(p.getUniqueId().toString()) != -1){
+                    if(allowlist.find(p.getUniqueId().toString()) != -1){
 
                         serverMessage(playerInfo.name +"は、弱すぎて参加資格がないが、今回は特別に許された。");
                         waiters.add(playerInfo);
@@ -326,7 +327,7 @@ public final class FightClub extends JavaPlugin implements Listener {
                     }
 
 
-                    //s.sendMessage("ブラックリストに登録されているため参加できません");
+                    //s.sendMessage("デニーリストに登録されているため参加できません");
                     s.sendMessage(playerInfo.name +"は、MFCに登録しようとしましたが、弱すぎるため拒否されました。KDR:"+registerKDRLimit+"以上が最低条件です");
                     return -4;
                 }
@@ -1250,8 +1251,8 @@ public final class FightClub extends JavaPlugin implements Listener {
             ret = "§dFree";
             entryTimerDefault = 10;
         }
-        if(mode == MFCModes.WhiteList){
-            ret = "§f§lWhitelist";
+        if(mode == MFCModes.Allowlist){
+            ret = "§f§lAllowlist";
         }
 
         return ret;
@@ -1444,6 +1445,19 @@ public final class FightClub extends JavaPlugin implements Listener {
         this.newbiePlayableCount =  getConfig().getInt("newbiePlayableCount",10);
         this.registerKDRLimit  = getConfig().getDouble("registerKDRLimit",0.2);
 
+        MFCAutoRunner.isEnabled = getConfig().getBoolean("auto-running.enabled");
+
+        for (int i = 1; i < 7; i++) {
+            StringBuilder schedule = null;
+            if (getConfig().get("auto-running.schedule." + i) == null) break;
+            schedule.append(getConfig().getString("auto-running.schedule." + i + ".WEEK") + ":");
+            schedule.append(getConfig().getString("auto-running.schedule." + i + ".START") + ":");
+            schedule.append(getConfig().getString("auto-running.schedule." + i + ".END"));
+            schedule.append(getConfig().getString("auto-running.schedule." + i + ".MODE"));
+            schedule.append(getConfig().getString("auto-running.schedule." + i + ".STARTMESSAGE"));
+            MFCAutoRunner.runnerSchedules.add(schedule.toString());
+        }
+
         serverMessage("賞金比率:"+this.prize);
         serverMessage("ニュービープレイ可能回数:"+this.newbiePlayableCount);
         serverMessage("KDRリミット:"+this.registerKDRLimit);
@@ -1451,8 +1465,8 @@ public final class FightClub extends JavaPlugin implements Listener {
         serverMessage("エントリ金額:"+this.entryPrice);
         updateSidebar();
 
-        whitelist = new FightClubList("whitelist");
-        blacklist = new FightClubList("blacklist");
+        allowlist = new FightClubList("allowlist");
+        denylist = new FightClubList("denylist");
         prolist = new FightClubList("prolist");
 
     }
